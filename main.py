@@ -14,13 +14,11 @@ def progonka(rhs):
 
 	d = rhs.copy()
 
-	# Прямой ход
 	for k in range(1, n):
 		coef = lower[k - 1] / main[k - 1]
 		main[k] -= coef * upper[k - 1]
 		d[k] -= coef * d[k - 1]
 
-	# Обратный ход
 	sol = np.zeros(n)
 	sol[-1] = d[-1] / main[-1]
 
