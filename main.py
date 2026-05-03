@@ -1,118 +1,99 @@
-import numpy as np
 import matplotlib.pyplot as plt
 
-def progonka(rhs):
-	"""
-	Решение методом прогонки (быстрее чем Гаусик)
-	"""
-	rhs = np.asarray(rhs, dtype=float)
-	n = len(rhs)
+N = [100, 400, 1600, 6400, 25600, 102400, 409600, 1638400]
 
-	lower = np.full(n - 1, -1.0)
-	main = np.full(n, 2.0)
-	upper = np.full(n - 1, -1.0)
+iter_time = [
+    2.264977e-03,
+    6.947994e-03,
+    2.015615e-02,
+    1.313379e-01,
+    1.036980e+00,
+    6.190235e+00,
+    5.407916e+01,
+    4.415511e+02
+]
 
-	d = rhs.copy()
+total_time = [
+    6.991141e-03,
+    2.853208e-02,
+    5.333059e-02,
+    2.644674e-01,
+    1.643992e+00,
+    8.633004e+00,
+    6.388752e+01,
+	5.166569e+02
+]
 
-	for k in range(1, n):
-		coef = lower[k - 1] / main[k - 1]
-		main[k] -= coef * upper[k - 1]
-		d[k] -= coef * d[k - 1]
+plt.figure()
+plt.loglog(N, iter_time, marker='o')
+plt.xlabel("Размер системы N")
+plt.ylabel("Число итераций")
+plt.grid(True)
+plt.title("Число итераций от размера системы")
+plt.show()
 
-	sol = np.zeros(n)
-	sol[-1] = d[-1] / main[-1]
-
-	for k in range(n - 2, -1, -1):
-		sol[k] = (d[k] - upper[k] * sol[k + 1]) / main[k]
-
-	return sol
-
-
-def exact_u(x):
-	return np.sin(4 * x) * np.cos(3 * x)
-
-
-def second_derivative(x):
-	return -0.5 * (49 * np.sin(7 * x) + np.sin(x))
-
-
-def build_rhs(N):
-	step = 1.0 / N
-	vec = np.zeros(N - 1)
-
-	for j in range(1, N):
-		point = j * step
-		vec[j - 1] = -second_derivative(point)
-
-	return vec
+plt.figure()
+plt.loglog(N, total_time, marker='o')
+plt.xlabel("Размер системы N")
+plt.ylabel("Время построения решения, сек")
+plt.grid(True)
+plt.title("Время построения решения от размера системы")
+plt.show()
 
 
-def solve_problem(N, left_val, right_val):
-	rhs = build_rhs(N)
-	step = 1.0 / N
+import matplotlib.pyplot as plt
 
-	rhs *= step ** 2
+h = [
+    0.0909091,
+    4.761905e-02,
+    2.439024e-02,
+    1.234568e-02,
+    6.211180e-03,
+    3.115265e-03,
+    1.560062e-03,
+]
 
-	rhs[0] += left_val
-	rhs[-1] += right_val
+c_norm_error = [
+    3.770941e-03,
+    1.070875e-03,
+    2.823413e-04,
+    7.240855e-05,
+    1.833261e-05,
+    4.612189e-06,
+    1.157134e-06,
+]
 
-	inner = progonka(rhs)
+l2_norm_error = [
+    1.632250e-03,
+    4.479220e-04,
+    1.175001e-04,
+    3.010391e-05,
+    7.619714e-06,
+    1.916910e-06,
+    4.809401e-07,
+]
 
-	result = np.zeros(N + 1)
-	result[0] = left_val
-	result[1:-1] = inner
-	result[-1] = right_val
+# Эталонная линия O(h^2), масштабируем под первую точку C-нормы
+oh2_c = [
+    c_norm_error[0] * (hi / h[0])**2
+    for hi in h
+]
 
-	return result
+# Эталонная линия O(h^2), масштабируем под первую точку L2-нормы
+oh2_l2 = [
+    l2_norm_error[0] * (hi / h[0])**2
+    for hi in h
+]
 
+plt.figure()
+plt.loglog(h, c_norm_error, marker='o', label='C-норма')
+plt.loglog(h, l2_norm_error, marker='o', label='L2-норма')
+plt.loglog(h, oh2_c, '--', label='O(h^2) для C-нормы')
+plt.loglog(h, oh2_l2, '--', label='O(h^2) для L2-нормы')
 
-def test_convergence(grid_sizes, left_val, right_val):
-	errors_L2 = []
-	errors_C = []
-	steps = []
-
-	for N in grid_sizes:
-		step = 1.0 / N
-
-		approx = solve_problem(N, left_val, right_val)
-
-		grid = np.linspace(0, 1, N + 1)
-		exact = exact_u(grid)
-
-		diff = approx - exact
-
-		err_L2 = np.sqrt(np.sum(diff ** 2) * step)
-		err_C = np.max(np.abs(diff))
-
-		errors_L2.append(err_L2)
-		errors_C.append(err_C)
-		steps.append(step)
-
-	steps = np.array(steps)
-
-	plt.figure(figsize=(8, 6))
-
-	plt.loglog(steps, errors_L2, marker="o", label="L2")
-	plt.loglog(steps, errors_C, marker="s", label="C")
-	plt.loglog(steps, steps ** 2, linestyle="--", linewidth=2, label="O(h²)")
-
-	plt.xlabel("шаг сетки h")
-	plt.ylabel("величина ошибки")
-	plt.title("Сходимость разностной схемы")
-
-	plt.grid(True, which="both")
-	plt.legend()
-
-	plt.savefig("graph_convergence.png", dpi=100)
-	plt.show()
-
-	return errors_L2, errors_C, steps
-
-
-if __name__ == "__main__":
-	grids = [2 ** k for k in range(1, 16)]
-
-	left = 0.0
-	right = np.sin(4) * np.cos(3)
-
-	test_convergence(grids, left, right)
+plt.xlabel('Шаг сетки h')
+plt.ylabel('Погрешность')
+plt.title('Погрешность решения от шага сетки')
+plt.grid(True, which='both')
+plt.legend()
+plt.show()
